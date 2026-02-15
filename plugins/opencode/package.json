@@ -1,0 +1,16 @@
+{
+  "name": "@codebase-graph/opencode-plugin",
+  "version": "0.1.0",
+  "description": "OpenCode plugin that injects a live codebase structural map into the system prompt",
+  "main": "index.ts",
+  "types": "index.ts",
+  "license": "MIT",
+  "peerDependencies": {
+    "@opencode-ai/plugin": ">=1.0.0"
+  },
+  "devDependencies": {
+    "@opencode-ai/plugin": "^1.2.5",
+    "typescript": "^5.7.0",
+    "@types/node": "^22.0.0"
+  }
+}

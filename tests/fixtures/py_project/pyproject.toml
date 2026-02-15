@@ -1,0 +1,21 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "py-project"
+version = "0.1.0"
+dependencies = [
+    "fastapi>=0.100.0",
+    "sqlalchemy>=2.0",
+    "pydantic>=2.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "ruff>=0.1.0",
+]
+docs = [
+    "mkdocs>=1.5",
+]
