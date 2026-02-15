@@ -236,28 +236,28 @@ More languages (Rust, Go, etc.) are supported by Kit and planned for v0.2.
 ## Architecture
 
 ```
-┌─────────────────────────────────────────────────────┐
-│                   codebase-graph                     │
-│                                                      │
-│  ┌──────────┐   ┌──────────┐   ┌────────────────┐   │
-│  │ Watcher  │ → │ Kit      │ → │ Graph Builder  │   │
-│  │(watchfiles)│  │(symbols) │   │(cluster, rels) │   │
-│  └──────────┘   └──────────┘   └───────┬────────┘   │
-│                                         │            │
-│                                ┌────────▼────────┐   │
-│                                │  .codebase.md   │   │
-│                                │  (md + toon)    │   │
-│                                └────────┬────────┘   │
-└─────────────────────────────────────────┼────────────┘
-                                          │
-                              ┌───────────▼───────────┐
-                              │   OpenCode Plugin     │
-                              │                       │
-                              │ Reads .codebase.md    │
-                              │ fresh on EVERY LLM    │
-                              │ call. Pushes onto     │
-                              │ output.system[]       │
-                              └───────────────────────┘
+┌───────────────────────────────────────────────────────┐
+│                   codebase-graph                      │
+│                                                       │
+│  ┌────────────┐   ┌──────────┐   ┌────────────────┐   │
+│  │ Watcher    │ → │ Kit      │ → │ Graph Builder  │   │
+│  │(watchfiles)│   │(symbols) │   │(cluster, rels) │   │
+│  └────────────┘   └──────────┘   └───────┬────────┘   │
+│                                          │            │
+│                                 ┌────────▼────────┐   │
+│                                 │  .codebase.md   │   │
+│                                 │  (md + toon)    │   │
+│                                 └────────┬────────┘   │
+└──────────────────────────────────────────┼────────────┘
+                                           │
+                               ┌───────────▼───────────┐
+                               │   OpenCode Plugin     │
+                               │                       │
+                               │ Reads .codebase.md    │
+                               │ fresh on EVERY LLM    │
+                               │ call. Pushes onto     │
+                               │ output.system[]       │
+                               └───────────────────────┘
 ```
 
 ### Project Structure
