@@ -26,7 +26,7 @@ The agent starts every turn knowing:
 ## Quick Start
 
 ```bash
-# Install
+# Install the CLI
 pip install codebase-graph
 
 # Generate .codebase.md for your project
@@ -36,14 +36,34 @@ codebase-graph ./my-project
 codebase-graph --watch --dir ./my-project
 ```
 
-That's it. The generated `.codebase.md` file contains the full structural map. To inject it into your AI agent, see [OpenCode Plugin](#opencode-plugin) below.
+### With OpenCode
+
+```bash
+# Install the OpenCode plugin
+npm install -g @broskees/opencode-codebase-graph
+```
+
+Add to your `opencode.json`:
+
+```json
+{
+  "plugin": ["@broskees/opencode-codebase-graph"]
+}
+```
+
+That's it. The plugin spawns `codebase-graph --watch` in the background and injects the structural map into the system prompt on every LLM call — for all providers.
 
 ---
 
 ## Installation
 
-### Requirements
+### CLI Tool (Python)
 
+```bash
+pip install codebase-graph
+```
+
+**Requirements:**
 - Python 3.11+
 - Git (the project directory must be a git repository)
 
@@ -102,22 +122,18 @@ The OpenCode plugin reads `.codebase.md` fresh on every LLM call and injects it 
 
 ### Setup
 
-1. Install the plugin dependencies:
+1. Install the CLI tool and the plugin:
 
 ```bash
-cd plugins/opencode
-npm install
+pip install codebase-graph
+npm install -g @broskees/opencode-codebase-graph
 ```
 
-2. Add to your OpenCode config (`.opencode/config.json`):
+2. Add to your `opencode.json`:
 
 ```json
 {
-  "plugins": {
-    "codebase-graph": {
-      "path": "./plugins/opencode"
-    }
-  }
+  "plugin": ["@broskees/opencode-codebase-graph"]
 }
 ```
 
@@ -131,14 +147,15 @@ npm install
 The plugin uses OpenCode's `experimental.chat.system.transform` hook, which fires **before every single LLM call** for **all providers**. It reads the latest `.codebase.md` from disk and pushes it onto `output.system[]`.
 
 ```typescript
-import type { Hooks, PluginInput } from "@opencode-ai/plugin"
+import type { Plugin } from "@opencode-ai/plugin"
 import { readFileSync } from "fs"
 import { join } from "path"
 import { spawn } from "child_process"
 
-export default async function codebaseGraph(input: PluginInput): Promise<Hooks> {
-  const briefingPath = join(input.directory, ".codebase.md")
-  spawn("codebase-graph", ["--watch", "--dir", input.directory], {
+export const CodebaseGraph: Plugin = async ({ directory }) => {
+  const briefingPath = join(directory, ".codebase.md")
+
+  spawn("codebase-graph", ["--watch", "--dir", directory], {
     stdio: "ignore", detached: false,
   })
 
@@ -219,10 +236,11 @@ TOON saves 40-60% tokens vs JSON for tabular data by declaring field names once 
 
 | Language | Extensions | Symbol Types |
 |----------|------------|-------------|
-| Python | `.py` | classes, functions, methods |
 | TypeScript | `.ts`, `.tsx` | interfaces, classes, functions, methods, enums |
+| JavaScript | `.js`, `.jsx` | classes, functions, methods |
+| Python | `.py` | classes, functions, methods |
 
-More languages (Rust, Go, etc.) are supported by Kit and planned for v0.2.
+More languages (Rust, Go, etc.) are supported by Kit and planned for future releases.
 
 ## Supported Manifests
 
@@ -275,7 +293,7 @@ codebase-graph/
 ├── plugins/
 │   └── opencode/               # OpenCode plugin (~25 lines TS)
 │       └── index.ts
-├── tests/                      # 300+ tests
+├── tests/                      # 304 tests
 ├── pyproject.toml
 ├── LICENSE                     # MIT
 └── README.md
