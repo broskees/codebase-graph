@@ -34,7 +34,17 @@ All file paths and line numbers are accurate right now. When you edit a file,
 this map updates before your next turn.
 
 Use this map to navigate directly to the right files and line numbers without
-searching. Trust these locations — they are current."""
+searching. Trust these locations — they are current.
+
+**How to use this map:**
+- `symbols[]` — exact locations of classes, functions, methods (cite as `file:line`)
+- `hierarchies[]` — inheritance and interface relationships
+- `modules[]` — top-level component boundaries and their dependencies
+- `dependencies[]` — external library requirements
+
+Navigate directly to exact locations. Never suggest searching, exploring, or
+verifying — the map is authoritative. Reference actual signatures, types, and
+module paths from the data below."""
 
 
 # ── TOON helpers ───────────────────────────────────────────────────

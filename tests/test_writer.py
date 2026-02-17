@@ -476,7 +476,12 @@ class TestWrite:
             dependencies=[],
             metadata=_meta(),
         )
-        assert "hierarchies" not in result
+        # The TOON section header (hierarchies[N]{fields}:) should not appear
+        # when there are no hierarchies. The word "hierarchies" may appear
+        # in the prompt framing guide text, so check for the section pattern.
+        import re
+
+        assert not re.search(r"hierarchies\[\d+\]\{", result)
 
     def test_output_omits_empty_dependencies(self):
         result = self.writer.write(
@@ -485,7 +490,11 @@ class TestWrite:
             dependencies=[],
             metadata=_meta(),
         )
-        assert "dependencies" not in result
+        # The TOON section header (dependencies[N]{fields}:) should not appear
+        # when there are no dependencies.
+        import re
+
+        assert not re.search(r"dependencies\[\d+\]\{", result)
 
     def test_output_includes_hierarchies_when_present(self):
         hierarchies = [

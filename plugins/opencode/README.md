@@ -1,4 +1,4 @@
-# @codebase-graph/opencode-plugin
+# @broskees/opencode-codebase-graph
 
 OpenCode plugin that injects a live codebase structural map into every LLM system prompt.
 
@@ -10,49 +10,24 @@ OpenCode plugin that injects a live codebase structural map into every LLM syste
 
 ## Installation
 
-### Prerequisites
-
-Install the `codebase-graph` CLI tool so it's available on your PATH:
+### 1. Install the CLI tool
 
 ```bash
 pip install codebase-graph
-# or
-pipx install codebase-graph
 ```
 
-Verify it works:
+### 2. Add the plugin to OpenCode
 
-```bash
-codebase-graph --version
-```
-
-### Add to OpenCode
-
-**Option A: Local plugin (recommended for now)**
-
-Copy the plugin file into your project or global plugin directory:
-
-```bash
-# Project-level (just this project)
-mkdir -p .opencode/plugins
-cp plugins/opencode/index.ts .opencode/plugins/codebase-graph.ts
-
-# Global (all projects)
-cp plugins/opencode/index.ts ~/.config/opencode/plugins/codebase-graph.ts
-```
-
-Local plugins are automatically loaded at startup — no config changes needed.
-
-**Option B: From npm (when published)**
-
-Add the plugin to your OpenCode config (`opencode.json`):
+In your `opencode.json`:
 
 ```json
 {
   "$schema": "https://opencode.ai/config.json",
-  "plugin": ["@codebase-graph/opencode-plugin"]
+  "plugin": ["@broskees/opencode-codebase-graph"]
 }
 ```
+
+That's it. The plugin auto-starts the watcher and injects the map on every LLM call.
 
 ## Verifying It Works
 

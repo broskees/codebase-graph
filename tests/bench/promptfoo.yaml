@@ -1,0 +1,306 @@
+# Promptfoo regression suite for codebase-graph prompt framing.
+#
+# Compares baseline vs optimized prompt across multiple models.
+# Uses a representative subset (15 tasks, 3 per category) from the dev set.
+#
+# Run: cd tests/bench && npx promptfoo eval && npx promptfoo view
+#
+# Requires OPENROUTER_API_KEY environment variable.
+
+description: "codebase-graph prompt framing regression"
+
+prompts:
+  - id: baseline
+    label: "baseline"
+    raw: |
+      {{prompt_framing}}
+
+      ```toon
+      {{codebase_map}}
+      ```
+
+      Task: {{task}}
+  - id: optimized
+    label: "optimized_mipro"
+    raw: |
+      {{prompt_framing_optimized}}
+
+      ```toon
+      {{codebase_map}}
+      ```
+
+      Task: {{task}}
+
+providers:
+  - id: openrouter:anthropic/claude-sonnet-4.5
+    label: "Sonnet 4.5"
+    config:
+      apiKey: "{{OPENROUTER_API_KEY}}"
+      max_tokens: 2048
+
+defaultTest:
+  options:
+    provider:
+      config:
+        temperature: 0
+  assert:
+    # Universal: agent should never use search language
+    - type: not-icontains
+      value: "let me search"
+    - type: not-icontains
+      value: "let me verify"
+    - type: not-icontains
+      value: "I'll look for"
+
+tests:
+  # ── Trust tasks (3) ──────────────────────────────────────────────
+  - description: "trust-08: APIRouter class definition (fastapi)"
+    vars:
+      prompt_framing:
+        file://prompts/baseline.md
+      prompt_framing_optimized:
+        file://prompts/optimized_mipro.md
+      codebase_map:
+        file://fixtures/fastapi.codebase.md
+      task: "Show me the APIRouter class definition."
+    assert:
+      - type: icontains
+        value: "fastapi/routing"
+      - type: javascript
+        value: |
+          const hasLine = /line\s*\d+|:\d+/.test(output);
+          return { pass: hasLine, score: hasLine ? 1 : 0, reason: hasLine ? 'Contains line number' : 'Missing line number reference' };
+      - type: not-icontains
+        value: "grep"
+      - type: not-icontains
+        value: "searching for"
+
+  - description: "trust-09: createSignal in Solid (solid)"
+    vars:
+      prompt_framing:
+        file://prompts/baseline.md
+      prompt_framing_optimized:
+        file://prompts/optimized_mipro.md
+      codebase_map:
+        file://fixtures/solid.codebase.md
+      task: "Where is createSignal defined in Solid's source?"
+    assert:
+      - type: icontains
+        value: "packages/solid/src/reactive/signal"
+      - type: javascript
+        value: |
+          const hasLine = /line\s*\d+|:\d+/.test(output);
+          return { pass: hasLine, score: hasLine ? 1 : 0, reason: hasLine ? 'Contains line number' : 'Missing line number reference' };
+
+  - description: "trust-10: Component type alias (solid)"
+    vars:
+      prompt_framing:
+        file://prompts/baseline.md
+      prompt_framing_optimized:
+        file://prompts/optimized_mipro.md
+      codebase_map:
+        file://fixtures/solid.codebase.md
+      task: "Show me where the Component type alias is defined."
+    assert:
+      - type: icontains
+        value: "packages/solid/src/render/component"
+      - type: javascript
+        value: |
+          const hasLine = /line\s*\d+|:\d+/.test(output);
+          return { pass: hasLine, score: hasLine ? 1 : 0, reason: hasLine ? 'Contains line number' : 'Missing line number reference' };
+
+  # ── Type consistency tasks (3) ───────────────────────────────────
+  - description: "type-08: Query param with validation (fastapi)"
+    vars:
+      prompt_framing:
+        file://prompts/baseline.md
+      prompt_framing_optimized:
+        file://prompts/optimized_mipro.md
+      codebase_map:
+        file://fixtures/fastapi.codebase.md
+      task: "Write a function that takes a Query parameter with validation. Use the correct Query type from fastapi params."
+    assert:
+      - type: icontains
+        value: "Query"
+      - type: llm-rubric
+        value: "Does the generated code correctly use the Query type from FastAPI's params module with proper type annotations?"
+
+  - description: "type-09: createSignal with Signal type (solid)"
+    vars:
+      prompt_framing:
+        file://prompts/baseline.md
+      prompt_framing_optimized:
+        file://prompts/optimized_mipro.md
+      codebase_map:
+        file://fixtures/solid.codebase.md
+      task: "Write a Solid component that uses createSignal. Make sure the Signal type is used correctly as a tuple of [get, set]."
+    assert:
+      - type: icontains
+        value: "createSignal"
+      - type: llm-rubric
+        value: "Does the code correctly use Solid's createSignal returning a [getter, setter] tuple pattern?"
+
+  - description: "type-10: Component type alias (solid)"
+    vars:
+      prompt_framing:
+        file://prompts/baseline.md
+      prompt_framing_optimized:
+        file://prompts/optimized_mipro.md
+      codebase_map:
+        file://fixtures/solid.codebase.md
+      task: "Write a typed Solid component using the Component type alias. The component should accept props with a name field."
+    assert:
+      - type: icontains
+        value: "Component"
+      - type: llm-rubric
+        value: "Does the code define a typed Solid component using the Component type alias with props including a name field?"
+
+  # ── Import correctness tasks (3) ────────────────────────────────
+  - description: "import-08: Query and Path from fastapi params"
+    vars:
+      prompt_framing:
+        file://prompts/baseline.md
+      prompt_framing_optimized:
+        file://prompts/optimized_mipro.md
+      codebase_map:
+        file://fixtures/fastapi.codebase.md
+      task: "Create an endpoint file that imports both Query and Path parameter types from FastAPI's params module."
+    assert:
+      - type: javascript
+        value: |
+          const hasImport = /(?:from\s+fastapi|import\s+.*(?:Query|Path))/.test(output);
+          return { pass: hasImport, score: hasImport ? 1 : 0, reason: hasImport ? 'Has FastAPI import' : 'Missing FastAPI import' };
+      - type: icontains
+        value: "Query"
+      - type: icontains
+        value: "Path"
+
+  - description: "import-09: createSignal and createEffect (solid)"
+    vars:
+      prompt_framing:
+        file://prompts/baseline.md
+      prompt_framing_optimized:
+        file://prompts/optimized_mipro.md
+      codebase_map:
+        file://fixtures/solid.codebase.md
+      task: "Create a new Solid component file that imports createSignal and createEffect from the correct module."
+    assert:
+      - type: javascript
+        value: |
+          const hasImport = /import\s+.*from\s+['"]solid-js['"]/.test(output);
+          return { pass: hasImport, score: hasImport ? 1 : 0, reason: hasImport ? 'Imports from solid-js' : 'Missing solid-js import' };
+
+  - description: "import-10: createStore from solid store"
+    vars:
+      prompt_framing:
+        file://prompts/baseline.md
+      prompt_framing_optimized:
+        file://prompts/optimized_mipro.md
+      codebase_map:
+        file://fixtures/solid.codebase.md
+      task: "Write a module that imports createStore from Solid's store package. Use the correct import path."
+    assert:
+      - type: javascript
+        value: |
+          const hasImport = /import\s+.*from\s+['"]solid-js\/store['"]/.test(output);
+          return { pass: hasImport, score: hasImport ? 1 : 0, reason: hasImport ? 'Imports from solid-js/store' : 'Missing solid-js/store import' };
+
+  # ── Contract adherence tasks (3) ────────────────────────────────
+  - description: "contract-08: ORJSONResponse with render (fastapi)"
+    vars:
+      prompt_framing:
+        file://prompts/baseline.md
+      prompt_framing_optimized:
+        file://prompts/optimized_mipro.md
+      codebase_map:
+        file://fixtures/fastapi.codebase.md
+      task: "Create a custom JSON response class by extending ORJSONResponse. Override the render method."
+    assert:
+      - type: icontains
+        value: "ORJSONResponse"
+      - type: icontains
+        value: "render"
+      - type: llm-rubric
+        value: "Does the code extend ORJSONResponse and properly override the render method with the correct signature?"
+
+  - description: "contract-09: createResource with fetcher (solid)"
+    vars:
+      prompt_framing:
+        file://prompts/baseline.md
+      prompt_framing_optimized:
+        file://prompts/optimized_mipro.md
+      codebase_map:
+        file://fixtures/solid.codebase.md
+      task: "Create a custom resource using createResource that fetches data from an API. Follow the ResourceFetcher contract with the correct (source, info) signature."
+    assert:
+      - type: icontains
+        value: "createResource"
+      - type: llm-rubric
+        value: "Does the code use createResource correctly with a fetcher function that accepts (source, info) parameters?"
+
+  - description: "contract-10: FlowComponent (solid)"
+    vars:
+      prompt_framing:
+        file://prompts/baseline.md
+      prompt_framing_optimized:
+        file://prompts/optimized_mipro.md
+      codebase_map:
+        file://fixtures/solid.codebase.md
+      task: "Write a FlowComponent that wraps children with conditional rendering. Follow the FlowComponent type contract."
+    assert:
+      - type: icontains
+        value: "FlowComponent"
+      - type: llm-rubric
+        value: "Does the code implement a FlowComponent with correct props handling and children rendering pattern?"
+
+  # ── Pattern adherence tasks (3) ─────────────────────────────────
+  - description: "pattern-08: custom route class (fastapi)"
+    vars:
+      prompt_framing:
+        file://prompts/baseline.md
+      prompt_framing_optimized:
+        file://prompts/optimized_mipro.md
+      codebase_map:
+        file://fixtures/fastapi.codebase.md
+      task: "Create a custom route class following the pattern of GzipRoute and TimedRoute from the docs examples. Extend APIRoute."
+    assert:
+      - type: icontains
+        value: "APIRoute"
+      - type: icontains
+        value: "get_route_handler"
+      - type: llm-rubric
+        value: "Does the code follow the pattern of existing custom route classes by extending APIRoute and overriding get_route_handler?"
+
+  - description: "pattern-09: reactive primitive (solid)"
+    vars:
+      prompt_framing:
+        file://prompts/baseline.md
+      prompt_framing_optimized:
+        file://prompts/optimized_mipro.md
+      codebase_map:
+        file://fixtures/solid.codebase.md
+      task: "Write a custom reactive primitive following the pattern of createSignal. It should return a tuple of [getter, setter] and accept an initial value and options."
+    assert:
+      - type: javascript
+        value: |
+          const hasTuple = /\[.*,\s*.*\]/.test(output);
+          return { pass: hasTuple, score: hasTuple ? 1 : 0, reason: hasTuple ? 'Returns tuple pattern' : 'Missing [getter, setter] tuple pattern' };
+      - type: llm-rubric
+        value: "Does the code follow Solid's createSignal pattern with [getter, setter] return, initial value param, and options?"
+
+  - description: "pattern-10: createStore helper (solid)"
+    vars:
+      prompt_framing:
+        file://prompts/baseline.md
+      prompt_framing_optimized:
+        file://prompts/optimized_mipro.md
+      codebase_map:
+        file://fixtures/solid.codebase.md
+      task: "Create a store helper following the createStore pattern from solid/store. Return a tuple of [store, setStore]."
+    assert:
+      - type: javascript
+        value: |
+          const hasTuple = /\[.*store.*,\s*set/i.test(output);
+          return { pass: hasTuple, score: hasTuple ? 1 : 0, reason: hasTuple ? 'Returns [store, setStore] pattern' : 'Missing store tuple pattern' };
+      - type: llm-rubric
+        value: "Does the code follow Solid's createStore pattern returning [store, setStore] with reactive store functionality?"

@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "codebase-graph"
-version = "0.1.0"
+version = "0.2.0"
 description = "A live, token-efficient structural map of a codebase for AI coding agents"
 license = "MIT"
 requires-python = ">=3.11"
@@ -21,6 +21,9 @@ dependencies = [
 dev = [
     "pytest>=8.0",
     "pytest-cov>=5.0",
+]
+bench = [
+    "dspy>=3.1.0",
 ]
 
 [project.scripts]

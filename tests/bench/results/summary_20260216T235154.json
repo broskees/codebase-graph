@@ -1,0 +1,10 @@
+{
+  "timestamp": "20260216T235154",
+  "scores": {
+    "baseline": 93.92
+  },
+  "instructions": {
+    "baseline": "Given a codebase structural map and a coding task, produce a response\nthat navigates directly using the map data, maintains type consistency,\nuses correct imports, adheres to API contracts, and follows codebase patterns."
+  },
+  "elapsed_seconds": 0.0
+}

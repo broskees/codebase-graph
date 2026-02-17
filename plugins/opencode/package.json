@@ -1,16 +1,28 @@
 {
-  "name": "@codebase-graph/opencode-plugin",
-  "version": "0.1.0",
+  "name": "@broskees/opencode-codebase-graph",
+  "version": "0.2.0",
   "description": "OpenCode plugin that injects a live codebase structural map into the system prompt",
   "main": "index.ts",
   "types": "index.ts",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/broskees/codebase-graph.git",
+    "directory": "plugins/opencode"
+  },
+  "keywords": [
+    "opencode",
+    "opencode-plugin",
+    "codebase",
+    "ai",
+    "coding-agent",
+    "structural-map"
+  ],
+  "files": [
+    "index.ts",
+    "README.md"
+  ],
   "peerDependencies": {
     "@opencode-ai/plugin": ">=1.0.0"
-  },
-  "devDependencies": {
-    "@opencode-ai/plugin": "^1.2.5",
-    "typescript": "^5.7.0",
-    "@types/node": "^22.0.0"
   }
 }
