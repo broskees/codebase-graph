@@ -1,6 +1,6 @@
 {
   "name": "@broskees/opencode-codebase-graph",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "OpenCode plugin that injects a live codebase structural map into the system prompt",
   "main": "index.ts",
   "types": "index.ts",

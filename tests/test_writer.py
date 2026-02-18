@@ -294,6 +294,69 @@ class TestSerializeSymbols:
         assert "symbols[5]" in result
         assert "omitted" not in result
 
+    def test_truncation_distributes_symbols_across_modules(self):
+        writer = CodebaseWriter(max_symbols=6, min_symbols_per_module=3)
+        auth_syms = [
+            _sym(
+                f"AuthType{i}",
+                kind="class",
+                file="src/auth/models.py",
+                line=i,
+            )
+            for i in range(10)
+        ]
+        ui_syms = [
+            _sym(
+                f"UiType{i}",
+                kind="class",
+                file="src/ui/models.py",
+                line=i,
+            )
+            for i in range(10)
+        ]
+        modules = [
+            _mod("auth", "src/auth", symbols=auth_syms),
+            _mod("ui", "src/ui", symbols=ui_syms),
+        ]
+
+        result = writer._serialize_symbols(modules)
+        rows = [
+            row
+            for row in result.splitlines()
+            if row.startswith("  ") and not row.startswith("  #")
+        ]
+        files = [_split_toon_row(row.strip())[2] for row in rows]
+
+        assert "symbols[6]" in result
+        assert any(file_path.startswith("src/auth/") for file_path in files)
+        assert any(file_path.startswith("src/ui/") for file_path in files)
+
+    def test_floor_keeps_small_module_visible(self):
+        writer = CodebaseWriter(max_symbols=5, min_symbols_per_module=2)
+        core_syms = [
+            _sym(
+                f"CoreType{i}",
+                kind="class",
+                file="src/core/models.py",
+                line=i,
+            )
+            for i in range(20)
+        ]
+        ui_syms = [
+            _sym("render", kind="fn", file="src/ui/view.py"),
+            _sym("mount", kind="fn", file="src/ui/view.py", line=20),
+        ]
+        modules = [
+            _mod("core", "src/core", symbols=core_syms),
+            _mod("ui", "src/ui", symbols=ui_syms),
+        ]
+
+        result = writer._serialize_symbols(modules)
+
+        assert "symbols[5]" in result
+        assert "src/ui/view::render" in result
+        assert "src/ui/view::mount" in result
+
     def test_empty_modules_produce_empty_symbols(self):
         modules = [_mod("empty", "src/empty")]
         result = self.writer._serialize_symbols(modules)

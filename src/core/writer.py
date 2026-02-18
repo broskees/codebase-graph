@@ -20,6 +20,7 @@ from pathlib import Path
 
 from src.core.graph import Hierarchy, Module
 from src.core.manifest import Dependency
+from src.core.parser import Symbol
 
 
 # ── Prompt framing ─────────────────────────────────────────────────
@@ -106,15 +107,22 @@ class CodebaseWriter:
         writer.write_to_file(Path(".codebase.md"), ...)
     """
 
-    def __init__(self, max_symbols: int = 500) -> None:
+    def __init__(
+        self,
+        max_symbols: int = 500,
+        min_symbols_per_module: int = 3,
+    ) -> None:
         """Initialize the writer.
 
         Args:
             max_symbols: Maximum number of symbols to include.
                          If exceeded, type definitions are prioritized
                          and a truncation comment is added.
+            min_symbols_per_module: Minimum symbols to include per module
+                                    when truncation is needed.
         """
         self.max_symbols = max_symbols
+        self.min_symbols_per_module = max(1, min_symbols_per_module)
 
     def write(
         self,
@@ -220,29 +228,28 @@ class CodebaseWriter:
 
     def _serialize_symbols(self, modules: list[Module]) -> str:
         """Serialize the symbols table, respecting max_symbols budget."""
-        # Collect all symbols from all modules
-        all_symbols = []
-        for mod in modules:
-            all_symbols.extend(mod.symbols)
+        module_symbol_pairs: list[tuple[str, list[Symbol]]] = [
+            (mod.path, mod.symbols) for mod in modules if mod.symbols
+        ]
+        all_symbols = [sym for _, symbols in module_symbol_pairs for sym in symbols]
 
-        # Priority kinds — type definitions come first
-        type_kinds = frozenset({"class", "interface", "struct", "enum", "type"})
         truncated = 0
-
         if len(all_symbols) > self.max_symbols:
-            # Split into type defs and others
-            type_syms = [s for s in all_symbols if s.kind in type_kinds]
-            other_syms = [s for s in all_symbols if s.kind not in type_kinds]
+            allocations = self._allocate_symbol_budget(module_symbol_pairs)
+            symbols_to_write: list[Symbol] = []
 
-            if len(type_syms) >= self.max_symbols:
-                # Even type defs alone exceed budget — truncate those too
-                symbols_to_write = type_syms[: self.max_symbols]
-                truncated = len(all_symbols) - self.max_symbols
-            else:
-                # Include all type defs + fill remaining budget with others
-                remaining = self.max_symbols - len(type_syms)
-                symbols_to_write = type_syms + other_syms[:remaining]
-                truncated = len(all_symbols) - len(symbols_to_write)
+            for mod in modules:
+                if not mod.symbols:
+                    continue
+
+                budget = allocations.get(mod.path, 0)
+                if budget <= 0:
+                    continue
+
+                selected = self._select_symbols_for_module(mod.symbols, budget)
+                symbols_to_write.extend(selected)
+
+            truncated = len(all_symbols) - len(symbols_to_write)
         else:
             symbols_to_write = all_symbols
 
@@ -264,6 +271,91 @@ class CodebaseWriter:
             lines.append(f"  # ... {truncated} more symbols omitted")
 
         return "\n".join(lines)
+
+    def _allocate_symbol_budget(
+        self,
+        module_symbol_pairs: list[tuple[str, list[Symbol]]],
+    ) -> dict[str, int]:
+        """Allocate symbol budget proportionally across modules."""
+        module_counts = [(path, len(symbols)) for path, symbols in module_symbol_pairs]
+        allocations = {path: 0 for path, _ in module_counts}
+        remaining = self.max_symbols
+
+        ranked = sorted(module_counts, key=lambda item: (-item[1], item[0]))
+
+        for path, count in ranked:
+            if remaining <= 0:
+                break
+            floor = min(self.min_symbols_per_module, count, remaining)
+            allocations[path] = floor
+            remaining -= floor
+
+        if remaining <= 0:
+            return allocations
+
+        capacities = {path: count - allocations[path] for path, count in ranked}
+        total_capacity = sum(capacities.values())
+        if total_capacity <= 0:
+            return allocations
+
+        remainder_scores: list[tuple[float, str]] = []
+        for path, _ in ranked:
+            capacity = capacities[path]
+            if capacity <= 0:
+                continue
+
+            exact_share = remaining * (capacity / total_capacity)
+            extra = min(capacity, int(exact_share))
+            allocations[path] += extra
+            capacities[path] -= extra
+            remainder_scores.append((exact_share - extra, path))
+
+        remaining = self.max_symbols - sum(allocations.values())
+        if remaining <= 0:
+            return allocations
+
+        remainder_scores.sort(key=lambda item: (-item[0], item[1]))
+        for _, path in remainder_scores:
+            if remaining <= 0:
+                break
+            if capacities[path] <= 0:
+                continue
+            allocations[path] += 1
+            capacities[path] -= 1
+            remaining -= 1
+
+        if remaining <= 0:
+            return allocations
+
+        for path, _ in ranked:
+            if remaining <= 0:
+                break
+            capacity = capacities[path]
+            if capacity <= 0:
+                continue
+
+            extra = min(capacity, remaining)
+            allocations[path] += extra
+            capacities[path] -= extra
+            remaining -= extra
+
+        return allocations
+
+    @staticmethod
+    def _select_symbols_for_module(
+        symbols: list[Symbol],
+        budget: int,
+    ) -> list[Symbol]:
+        """Pick symbols for one module, preferring type definitions first."""
+        type_kinds = frozenset({"class", "interface", "struct", "enum", "type"})
+        type_symbols = [sym for sym in symbols if sym.kind in type_kinds]
+
+        if len(type_symbols) >= budget:
+            return type_symbols[:budget]
+
+        other_symbols = [sym for sym in symbols if sym.kind not in type_kinds]
+        remaining = budget - len(type_symbols)
+        return type_symbols + other_symbols[:remaining]
 
     @staticmethod
     def _serialize_hierarchies(hierarchies: list[Hierarchy]) -> str:

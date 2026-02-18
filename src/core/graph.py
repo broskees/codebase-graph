@@ -167,9 +167,21 @@ class ModuleClusterer:
     """Groups symbols into directory-based modules.
 
     Each top-level directory under the project root (or under src/) forms
-    one module. Symbols in the root directory itself get a special "__root__"
-    module.
+    one module by default. Symbols in the root directory itself get a special
+    "__root__" module.
+
+    For very large modules, clustering adapts by splitting one directory level
+    deeper until each module falls under the configured symbol budget.
     """
+
+    def __init__(self, max_module_symbols: int = 200) -> None:
+        """Initialize the clusterer.
+
+        Args:
+            max_module_symbols: Preferred max symbols per module before
+                adaptive splitting kicks in.
+        """
+        self.max_module_symbols = max_module_symbols
 
     def cluster(self, symbols_by_file: dict[str, list[Symbol]]) -> list[Module]:
         """Cluster file-grouped symbols into modules.
@@ -179,22 +191,27 @@ class ModuleClusterer:
                              (the output of CodebaseParser.parse_directory).
 
         Returns:
-            List of Module objects, one per top-level directory.
+            List of Module objects, adaptively split by directory depth.
         """
-        # Bucket files into modules by their top-level directory
-        module_buckets: dict[str, list[Symbol]] = {}
-        module_files: dict[str, set[str]] = {}
+        if not symbols_by_file:
+            return []
+
+        # Bucket files into base modules, then adaptively split oversized ones.
+        module_files: dict[str, dict[str, list[Symbol]]] = {}
 
         for file_path, file_symbols in symbols_by_file.items():
             module_path = self._module_path_for(file_path)
-            module_buckets.setdefault(module_path, []).extend(file_symbols)
-            module_files.setdefault(module_path, set()).add(file_path)
+            module_files.setdefault(module_path, {})[file_path] = file_symbols
+
+        module_files = self._split_large_modules(module_files)
 
         # Build Module objects
         modules: list[Module] = []
-        for mod_path in sorted(module_buckets):
+        for mod_path in sorted(module_files):
             name = PurePosixPath(mod_path).name if mod_path != "." else "__root__"
-            syms = module_buckets[mod_path]
+            syms: list[Symbol] = []
+            for file_symbols in module_files[mod_path].values():
+                syms.extend(file_symbols)
 
             key_types = sorted({s.name for s in syms if s.kind in _KEY_TYPE_KINDS})
 
@@ -233,6 +250,64 @@ class ModuleClusterer:
 
         # Otherwise module is the first directory
         return parts[0]
+
+    def _split_large_modules(
+        self,
+        module_files: dict[str, dict[str, list[Symbol]]],
+    ) -> dict[str, dict[str, list[Symbol]]]:
+        """Split oversized modules one directory level at a time."""
+        while True:
+            changed = False
+            next_files: dict[str, dict[str, list[Symbol]]] = {}
+
+            for module_path in sorted(module_files):
+                file_symbol_map = module_files[module_path]
+                symbol_count = self._symbol_count(file_symbol_map)
+
+                if symbol_count <= self.max_module_symbols:
+                    next_files[module_path] = file_symbol_map
+                    continue
+
+                split_map = self._split_one_level(module_path, file_symbol_map)
+                if set(split_map) == {module_path}:
+                    next_files[module_path] = file_symbol_map
+                    continue
+
+                changed = True
+                for split_path, split_files in split_map.items():
+                    next_files.setdefault(split_path, {}).update(split_files)
+
+            module_files = next_files
+            if not changed:
+                return module_files
+
+    @staticmethod
+    def _split_one_level(
+        module_path: str,
+        file_symbol_map: dict[str, list[Symbol]],
+    ) -> dict[str, dict[str, list[Symbol]]]:
+        """Split one module by the next directory component."""
+        if module_path == ".":
+            return {module_path: file_symbol_map}
+
+        module_parts = PurePosixPath(module_path).parts
+        split_buckets: dict[str, dict[str, list[Symbol]]] = {}
+
+        for file_path, file_symbols in file_symbol_map.items():
+            parent_parts = PurePosixPath(file_path).parts[:-1]
+            if len(parent_parts) <= len(module_parts):
+                target_path = module_path
+            else:
+                next_part = parent_parts[len(module_parts)]
+                target_path = "/".join((*module_parts, next_part))
+
+            split_buckets.setdefault(target_path, {})[file_path] = file_symbols
+
+        return split_buckets
+
+    @staticmethod
+    def _symbol_count(file_symbol_map: dict[str, list[Symbol]]) -> int:
+        return sum(len(file_symbols) for file_symbols in file_symbol_map.values())
 
 
 # ── Hierarchy Extraction ───────────────────────────────────────────

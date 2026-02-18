@@ -164,6 +164,51 @@ class TestModuleClusterer:
         assert modules[0].name == "auth"
         assert modules[0].path == "src/auth"
 
+    def test_large_non_src_module_splits_deeper(self):
+        """Oversized modules split one level deeper until under threshold."""
+        model_syms = [
+            _sym(
+                f"Model{i}",
+                kind="class",
+                file="backend/open_webui/models/entities.py",
+            )
+            for i in range(120)
+        ]
+        router_syms = [
+            _sym(
+                f"Route{i}",
+                kind="class",
+                file="backend/open_webui/routers/routes.py",
+            )
+            for i in range(120)
+        ]
+        symbols = {
+            "backend/open_webui/models/entities.py": model_syms,
+            "backend/open_webui/routers/routes.py": router_syms,
+        }
+
+        modules = self.clusterer.cluster(symbols)
+        paths = {module.path for module in modules}
+
+        assert "backend/open_webui/models" in paths
+        assert "backend/open_webui/routers" in paths
+        assert "backend" not in paths
+
+    def test_oversized_single_file_module_does_not_loop(self):
+        """A large module with no deeper dirs should remain as-is."""
+        symbols = {
+            "backend/main.py": [
+                _sym(f"Item{i}", kind="class", file="backend/main.py")
+                for i in range(220)
+            ],
+        }
+
+        modules = self.clusterer.cluster(symbols)
+
+        assert len(modules) == 1
+        assert modules[0].path == "backend"
+        assert len(modules[0].symbols) == 220
+
 
 # ── Hierarchy extraction tests ─────────────────────────────────────
 
